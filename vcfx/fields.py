@@ -17,9 +17,10 @@ class Field(object):
         if "pref" in self.types:
             self.preferred = True
 
-class Unknown:
 
-    def __init__(self, line, lineno=0):
+class Unknown:
+    KEY = None
+    def __init__(self, value="", line=0, lineno=0):
         self.line = line
         self.lineno = lineno
 
