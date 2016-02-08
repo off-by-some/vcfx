@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import io
 from .fields import getField, Unknown
-from pydash.collections import filter_ as ifilter, partition, map_ as imap
+from pydash.collections import filter_ as ifilter, partition
+from pydash.objects import pick
 from itertools import takewhile
 
 def parseline(line):
@@ -29,42 +30,45 @@ def parseline(line):
         key, value = item.split("=")
         return {key: value}
 
-    attrs = imap(attrs, normalizeAttr)
+    attrs = [normalizeAttr(x) for x in attrs]
 
     return subkey, key, attrs, value
 
 
 class Reader(object):
-    def __init__(self, fpath=None):
+    def __init__(self, fpath=None, scan=False, cache=False):
         super(Reader, self).__init__()
         self.fpath = fpath
+        self._cache_pos = cache
+
+        if scan:
+            self._vAST = list(self._discover_nodes())
+        else:
+            self._vAST = list()
+
 
         if fpath == None or type(fpath) != str:
             raise ValueError("A valid filepath must be provided")
 
         self.handle = io.open(self.fpath, "r", encoding="utf-8", newline="\r\n")
 
-        # A "virtual" AST, Doesn't store any data from the vcard,
-        # just metadata (i.e lineno)
-        self._vAST = list(self._discover_nodes())
-
-        self.positions = {
-            "address":      self._get_node_positions("ADR"),
-            "altbirthday":  self._get_node_position("X-ALTBDAY"),
-            "begin":        self._get_node_position("BEGIN", required=True),
-            "birthday":     self._get_node_position("BDAY"),
-            "email":        self._get_node_positions("EMAIL"),
-            "end":          self._get_node_position("END", required=True),
-            "fullname":     self._get_node_position("FN"),
-            "label":        self._get_node_positions("X-ABLabel"),
-            "name":         self._get_node_position("N"),
-            "organization": self._get_node_position("ORG"),
-            "photo":        self._get_photo_range(),
-            "prodid":       self._get_node_position("PRODID"),
-            "telephone":    self._get_node_positions("TEL"),
-            "url":          self._get_node_positions("URL"),
-            "version":      self._get_node_position("VERSION"),
-        }
+        # self.positions = {
+        #     "address":      self._get_node_positions("ADR"),
+        #     "altbirthday":  self._get_node_position("X-ALTBDAY"),
+        #     "begin":        self._get_node_position("BEGIN", required=True),
+        #     "birthday":     self._get_node_position("BDAY"),
+        #     "email":        self._get_node_positions("EMAIL"),
+        #     "end":          self._get_node_position("END", required=True),
+        #     "fullname":     self._get_node_position("FN"),
+        #     "label":        self._get_node_positions("X-ABLabel"),
+        #     "name":         self._get_node_position("N"),
+        #     "organization": self._get_node_position("ORG"),
+        #     "photo":        self._get_photo_range(),
+        #     "prodid":       self._get_node_position("PRODID"),
+        #     "telephone":    self._get_node_positions("TEL"),
+        #     "url":          self._get_node_positions("URL"),
+        #     "version":      self._get_node_position("VERSION"),
+        # }
 
     def _filter_nodes(self, fn):
         return ifilter(self._vAST, fn)
@@ -95,6 +99,7 @@ class Reader(object):
             print(parent)
 
     def _get_node_position(self, key, required=False):
+        """Discovers a single node position in vAST"""
         q = self.find_nodes_by_key(key)
 
         if len(q) == 0 and required:
@@ -105,6 +110,7 @@ class Reader(object):
         return q[0].lineno
 
     def _get_node_positions(self, key, required=False):
+        """Discovers many node positions in vAST"""
         q = self.find_nodes_by_key(key)
 
         if len(q) == 0 and required:
@@ -115,60 +121,92 @@ class Reader(object):
         return [x.lineno for x in q]
 
     def _get_photo_range(self):
-        """Attempts to discover where the photo attribute starts and ends"""
+        """Attempts to discover where the photo attribute starts and ends
+           based on information from the vAST
+        """
 
         # Do we have a photo?
         photo = self.find_nodes_by_key("PHOTO")
 
         if len(photo) == 0:
+            # Nope.
             return None
 
         # Grab where our photo starts in our vAST
         start_idx = self._vAST.index(photo[0])
+
+        # Slice off anything before it
         vAST_slice = self._vAST[start_idx:]
 
-        def inPhotoSince(start):
+        def not_known_token(t):
+            """ Stop at the first token that doesn't match t : <T> or Unknown
+            """
             def wrapped(a):
-                if type(a) == type(start) or type(a) == Unknown:
+                if type(a) == type(t) or type(a) == Unknown:
                     return True
                 else:
                     return False
             return wrapped
 
         # Take every item in our vAST from the photo declaration
-        # to the last UNKNOWN token
-        photo_slice = list(takewhile(inPhotoSince(photo[0]), vAST_slice))
+        # to the last UNKNOWN token.. A bit of a weak heruristic,
+        # as it only works for photos.
+        # TODO(cassidy): Investigate this before a folded 80 character
+        #                address does
+        photo_slice = list(takewhile(not_known_token(photo[0]), vAST_slice))
         start_line, end_line = photo_slice[0].lineno, photo_slice[-1].lineno
 
         return {"start": start_line, "end": end_line}
 
-    def _discover_nodes(self):
-        """ Cycle through our fields and record their positions for later
-            retrieval
-        """
+    def tokenize_lines(self):
+        self.handle.seek(0)
+
         lineno = 0
-        for line in self.readlines():
-            parsed = parseline(line)
-
-            if (parsed != None):
-                subkey, key, attrs, value = parseline(line)
-                print(subkey, key, attrs)
-                t = getField(key)
-
-                if t == None:
-                    # We don't know what it is, process it later
-                    t = Unknown(lineno=lineno)
-                else:
-                    t = t(subkey=subkey, lineno=lineno)
-
-                yield t
-            else:
-                yield Unknown(lineno=lineno)
-
+        for line in self.handle:
+            yield from self._tokenize_line(line, lineno=lineno)
             lineno += 1
 
-        # Return us to the beginning of the file
-        self.handle.seek(0)
+    def _tokenize_line(self, line, lineno=None):
+        """ Parse a line and tokenize it with our field tokens """
+
+        parsed = parseline(line)
+
+        if (parsed != None):
+            subkey, key, attrs, value = parsed
+            t = getField(key)
+
+            cls_kwrgs = {
+                "subkey": subkey,
+                "attrs": attrs, "value": value,
+                "lineno": lineno
+            }
+
+            cls_condensed = pick(cls_kwrgs, "lineno", "subkey")
+
+            UnknownNode = lambda kw: Unknown(**kw)
+            FieldNode = lambda kw: t(**kw)
+
+            if t == None:
+                # We don't know what it is, process it later
+                node = UnknownNode(cls_kwrgs)
+            elif self._cache_pos:
+
+                if t == None:
+                    # Push a condensed version of the node to vAST
+                    self._vAST.append(UnknownNode(cls_condensed))
+                else:
+                    self._vAST.append(FieldNode(cls_condensed))
+
+            elif t is not None:
+                node = FieldNode(cls_kwrgs)
+
+            if node == None:
+                import ipdb; ipdb.set_trace()
+
+            yield node
+        else:
+            yield Unknown(lineno=lineno)
+
 
     def _read_line_numbers(self, l=[]):
         lineno = 0
