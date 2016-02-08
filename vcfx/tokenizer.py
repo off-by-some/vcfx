@@ -138,6 +138,8 @@ class Parser(object):
 
         # Update the parent photo node with the correct value
         photo_tokens[0].value = newvalue
+        photo_tokens[0].b64 = newvalue
+
         return photo_tokens[0]
 
 

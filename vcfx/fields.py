@@ -138,6 +138,7 @@ class Email(Field):
 class Photo(Field):
     KEY = "PHOTO"
     def __init__(self, *a, **kw):
+        self.b64 = None
         super(Photo, self).__init__(*a, **kw)
 
 class Telephone(Field):
