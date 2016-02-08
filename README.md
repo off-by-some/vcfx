@@ -53,5 +53,5 @@ for field in vcard:
 #### FullName
 - `value :: str`        -- The full name of the contact
 
-### Photo
+#### Photo
 - `b64 :: str`          -- Base64 representation of the contact's photo
