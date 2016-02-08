@@ -171,7 +171,9 @@ class Reader(object):
 
         parsed = parseline(line)
 
-        if (parsed != None):
+        if parsed is None:
+            yield Unknown(lineno=lineno)
+        else:
             subkey, key, attrs, value = parsed
             t = getField(key)
 
@@ -186,26 +188,24 @@ class Reader(object):
             UnknownNode = lambda kw: Unknown(**kw)
             FieldNode = lambda kw: t(**kw)
 
+            node = None
             if t == None:
                 # We don't know what it is, process it later
                 node = UnknownNode(cls_kwrgs)
-            elif self._cache_pos:
 
-                if t == None:
-                    # Push a condensed version of the node to vAST
-                    self._vAST.append(UnknownNode(cls_condensed))
-                else:
-                    self._vAST.append(FieldNode(cls_condensed))
-
-            elif t is not None:
+            elif t != None:
                 node = FieldNode(cls_kwrgs)
 
-            if node == None:
-                import ipdb; ipdb.set_trace()
+            # TODO(cassidy): Caching seems to not work?
+            # elif self._cache_pos:
+            #
+            #     if t == None:
+            #         # Push a condensed version of the node to vAST
+            #         self._vAST.append(UnknownNode(cls_condensed))
+            #     else:
+            #         self._vAST.append(FieldNode(cls_condensed))
 
             yield node
-        else:
-            yield Unknown(lineno=lineno)
 
 
     def _read_line_numbers(self, l=[]):
