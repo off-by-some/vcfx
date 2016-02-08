@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import io
 from .fields import getField, Unknown
-from pydash.collections import filter_ as ifilter, partition
+from pydash.collections import filter_ as ifilter, partition, pluck
 from pydash.objects import pick
 from itertools import takewhile
 
-def parseline(line):
+def parseline3(line):
     segs = line.split(":")
 
     # We could be in a multi-line value
@@ -35,9 +35,9 @@ def parseline(line):
     return subkey, key, attrs, value
 
 
-class Reader(object):
+class Parser(object):
     def __init__(self, fpath=None, scan=False):
-        super(Reader, self).__init__()
+        super(Parser, self).__init__()
         self.fpath = fpath
 
         if fpath == None or type(fpath) != str:
@@ -120,6 +120,27 @@ class Reader(object):
 
         return [x.lineno for x in q]
 
+    def compile_photo(self):
+        photo_pos = self.positions["photo"]
+
+        if photo_pos is None:
+            return None
+
+        start, end = photo_pos["start"], photo_pos["end"]
+
+        # Retokenize and grab real-boy data
+        photo_tokens = list(self.tokenize_slice(start, end))
+
+        b64segs = [x.value for x in photo_tokens]
+
+        # Strip the spaces + CLRF, and join the segments
+        newvalue = "".join([x.strip(" \r\n") for x in b64segs])
+
+        # Update the parent photo node with the correct value
+        photo_tokens[0].value = newvalue
+        return photo_tokens[0]
+
+
     def _get_photo_range(self):
         """Attempts to discover where the photo attribute starts and ends
            based on information from the vAST
@@ -190,10 +211,10 @@ class Reader(object):
     def _tokenize_line(self, line, lineno=None, meta=False):
         """ Parse a line and tokenize it with our field tokens """
 
-        parsed = parseline(line)
+        parsed = parseline3(line)
 
         if parsed is None:
-            yield Unknown(lineno=lineno)
+            yield Unknown(rawvalue=line, lineno=lineno)
         else:
             subkey, key, attrs, value = parsed
             t = getField(key)
@@ -228,7 +249,7 @@ class Reader(object):
 
         self.handle.seek(0)
 
-    def _tokenize_rows(self, l=[]):
+    def tokenize_rows(self, l=[]):
         lineno = 0
         for line in self.tokenize_lines():
             if lineno in l:
@@ -238,18 +259,24 @@ class Reader(object):
 
         self.handle.seek(0)
 
+    def tokenize_row(self, row_num):
+        return list(self.tokenize_row([row_num]))[0]
+
     def readslice(self, start, end):
         r = list(range(start, end + 1))
         yield from self._read_line_numbers(r)
 
     def tokenize_slice(self, start, end):
-        r = list(range(start, end + 1))
-        yield from self._read_line_numbers(r)
+        l = list(range(start, end + 1))
+
+        lineno = 0
+        for line in self.readlines():
+            if lineno in l:
+                yield from self._tokenize_line(line, lineno=lineno)
+
+            lineno += 1
+
+        self.handle.seek(0)
 
     def readlines(self, start=0, end=0):
         yield from self.handle
-
-    def filterlines(self, fn=bool):
-        for line in readlines(self):
-            if fn(line):
-                yield line
