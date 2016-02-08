@@ -86,13 +86,17 @@ class Reader(object):
 
         for node in label_nodes:
             subkey = node.subkey
+            idx = self._vAST.index(node)
 
             # Find the parent node to attach our label
             # TODO(cassidy): This could break if there can be more than 2 items
             #                with the same subkey, research
-            parent = self._filter_nodes(lambda n: n.subkey == subkey)[0]
+            parent = self._filter_nodes(
+                lambda n: n.subkey == subkey and n is not node
+            )[0]
 
-            print(parent)
+            # Assign our label to it's parent
+            parent.label = node.value
 
     def _get_node_position(self, key, required=False):
         """Discovers a single node position in vAST"""
@@ -175,6 +179,8 @@ class Reader(object):
             "version":      self._get_node_position("VERSION"),
         }
 
+        self._flatten_labels()
+
     def tokenize_lines(self, meta=False):
         lineno = 0
         for line in self.handle:
@@ -194,13 +200,14 @@ class Reader(object):
 
             cls_kwrgs = {
                 "subkey": subkey,
-                "attrs": attrs, "value": value,
+                "attrs": attrs, "rawvalue": value,
                 "lineno": lineno
             }
 
             # We only want meta information
             if meta:
                 cls_kwrgs = pick(cls_kwrgs, "lineno", "subkey")
+
 
             UnknownNode = lambda kw: Unknown(**kw)
             FieldNode = lambda kw: t(**kw)
