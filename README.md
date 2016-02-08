@@ -4,7 +4,7 @@ A Python 3 Vcard parser
 ### Todo:
 There are still some things left to do:
   - Proper value parsing and assignment on all fields per spec (you may still grab the unparsed value if there is one with `Field.value`)
-  - Vcard 2.1 support (Really just need to write a `parseline2` function similar to `parseline3` in parser.js)
+  - Vcard 2.1 support (Really just need to write a `parseline2` function similar to `parseline3` in `tokenizer.js`)
   - Custom fields for android
   - URL support for photos
   - Identification of `Unknown` rows & flattening of the `vAST` when iterating over the reader
