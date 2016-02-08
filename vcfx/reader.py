@@ -49,28 +49,53 @@ class Reader(object):
         self._vAST = list(self._discover_nodes())
 
         self.positions = {
-            "begin":     0,
-            "version":      self._get_node_position("VERSION"),
-            "prodid":       self._get_node_position("PRODID"),
-            "name":         self._get_node_position("N"),
-            "fullname":     self._get_node_position("FN"),
-            "organization": self._get_node_position("ORG"),
-            "email":        self._get_node_positions("EMAIL"),
-            "telephone":    self._get_node_positions("TEL"),
-            "label":        self._get_node_positions("X-ABLabel"),
             "address":      self._get_node_positions("ADR"),
-            "url":          self._get_node_positions("URL"),
             "altbirthday":  self._get_node_position("X-ALTBDAY"),
+            "begin":        self._get_node_position("BEGIN", required=True),
             "birthday":     self._get_node_position("BDAY"),
+            "email":        self._get_node_positions("EMAIL"),
+            "end":          self._get_node_position("END", required=True),
+            "fullname":     self._get_node_position("FN"),
+            "label":        self._get_node_positions("X-ABLabel"),
+            "name":         self._get_node_position("N"),
+            "organization": self._get_node_position("ORG"),
             "photo":        self._get_photo_range(),
-            "end":          self._get_node_position("END")
+            "prodid":       self._get_node_position("PRODID"),
+            "telephone":    self._get_node_positions("TEL"),
+            "url":          self._get_node_positions("URL"),
+            "version":      self._get_node_position("VERSION"),
         }
 
-    def findNodesByKey(self, key):
-        return ifilter(self._vAST, lambda n: n.KEY == key)
+    def _filter_nodes(self, fn):
+        return ifilter(self._vAST, fn)
+
+    def find_nodes_by_key(self, key):
+        return self._filter_nodes(lambda n: n.KEY == key)
+
+    def find_nodes_by_subkey(self, subkey):
+        return self._filter_nodes(lambda n: n.subkey == subkey)
+
+    def _flatten_labels(self):
+        label_idxs = self.positions["label"]
+
+        if label_idxs == None:
+            return
+
+        label_nodes = [self._vAST[x] for x in label_idxs]
+
+        for node in label_nodes:
+            subkey = node.subkey
+            print(subkey)
+
+            # Find the parent node to attach our label
+            # TODO(cassidy): This could break if there can be more than 2 items
+            #                with the same subkey, research
+            parent = self._filter_nodes(lambda n: n.subkey == subkey)[0]
+
+            print(parent)
 
     def _get_node_position(self, key, required=False):
-        q = self.findNodesByKey(key)
+        q = self.find_nodes_by_key(key)
 
         if len(q) == 0 and required:
             raise ValueError("Could not determine vcard version")
@@ -80,7 +105,7 @@ class Reader(object):
         return q[0].lineno
 
     def _get_node_positions(self, key, required=False):
-        q = self.findNodesByKey(key)
+        q = self.find_nodes_by_key(key)
 
         if len(q) == 0 and required:
             raise ValueError("Could not determine vcard version")
@@ -93,7 +118,7 @@ class Reader(object):
         """Attempts to discover where the photo attribute starts and ends"""
 
         # Do we have a photo?
-        photo = self.findNodesByKey("PHOTO")
+        photo = self.find_nodes_by_key("PHOTO")
 
         if len(photo) == 0:
             return None
@@ -127,13 +152,14 @@ class Reader(object):
 
             if (parsed != None):
                 subkey, key, attrs, value = parseline(line)
+                print(subkey, key, attrs)
                 t = getField(key)
 
                 if t == None:
                     # We don't know what it is, process it later
                     t = Unknown(lineno=lineno)
                 else:
-                    t = t(lineno=lineno)
+                    t = t(subkey=subkey, lineno=lineno)
 
                 yield t
             else:

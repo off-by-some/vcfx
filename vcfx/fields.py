@@ -3,11 +3,12 @@ from pydash.collections import filter_ as ifilter, pluck
 class Field(object):
     KEY = None
 
-    def __init__(self, value="", attrs=[], lineno=0, subkey=None):
+    def __init__(self, value="", attrs=[], lineno=0, label="", subkey=None):
         self.preferred = False
         self.types = pluck(attrs, "type")
         self.value = value
         self.lineno = lineno
+        self.label = label
 
         # IOS adds their own format for custom fields in the form of
         # <subkey>.<key>, i.e item6.ADR
@@ -18,11 +19,10 @@ class Field(object):
             self.preferred = True
 
 
-class Unknown:
+class Unknown(Field):
     KEY = None
-    def __init__(self, value="", line=0, lineno=0):
-        self.line = line
-        self.lineno = lineno
+    def __init__(self, *a, **kw):
+        super(Unknown, self).__init__(*a, **kw)
 
 class Begin(Field):
     KEY = "BEGIN"
