@@ -36,39 +36,36 @@ def parseline(line):
 
 
 class Reader(object):
-    def __init__(self, fpath=None, scan=False, cache=False):
+    def __init__(self, fpath=None, scan=False):
         super(Reader, self).__init__()
         self.fpath = fpath
-        self._cache_pos = cache
-
-        if scan:
-            self._vAST = list(self._discover_nodes())
-        else:
-            self._vAST = list()
-
 
         if fpath == None or type(fpath) != str:
             raise ValueError("A valid filepath must be provided")
 
         self.handle = io.open(self.fpath, "r", encoding="utf-8", newline="\r\n")
 
-        # self.positions = {
-        #     "address":      self._get_node_positions("ADR"),
-        #     "altbirthday":  self._get_node_position("X-ALTBDAY"),
-        #     "begin":        self._get_node_position("BEGIN", required=True),
-        #     "birthday":     self._get_node_position("BDAY"),
-        #     "email":        self._get_node_positions("EMAIL"),
-        #     "end":          self._get_node_position("END", required=True),
-        #     "fullname":     self._get_node_position("FN"),
-        #     "label":        self._get_node_positions("X-ABLabel"),
-        #     "name":         self._get_node_position("N"),
-        #     "organization": self._get_node_position("ORG"),
-        #     "photo":        self._get_photo_range(),
-        #     "prodid":       self._get_node_position("PRODID"),
-        #     "telephone":    self._get_node_positions("TEL"),
-        #     "url":          self._get_node_positions("URL"),
-        #     "version":      self._get_node_position("VERSION"),
-        # }
+        self.positions = {
+            "address":      None,
+            "altbirthday":  None,
+            "begin":        None,
+            "birthday":     None,
+            "email":        None,
+            "end":          None,
+            "fullname":     None,
+            "label":        None,
+            "name":         None,
+            "organization": None,
+            "photo":        None,
+            "prodid":       None,
+            "telephone":    None,
+            "url":          None,
+            "version":      None,
+        }
+
+        if scan:
+            self.discover()
+            self.handle.seek(0)
 
     def _filter_nodes(self, fn):
         return ifilter(self._vAST, fn)
@@ -89,7 +86,6 @@ class Reader(object):
 
         for node in label_nodes:
             subkey = node.subkey
-            print(subkey)
 
             # Find the parent node to attach our label
             # TODO(cassidy): This could break if there can be more than 2 items
@@ -103,7 +99,7 @@ class Reader(object):
         q = self.find_nodes_by_key(key)
 
         if len(q) == 0 and required:
-            raise ValueError("Could not determine vcard version")
+            raise ValueError("Could not find node by key " + key )
         elif len(q) == 0:
             return None
 
@@ -158,15 +154,34 @@ class Reader(object):
 
         return {"start": start_line, "end": end_line}
 
-    def tokenize_lines(self):
-        self.handle.seek(0)
+    def discover(self):
+        self._vAST = list(self.tokenize_lines(meta=True))
 
+        self.positions = {
+            "address":      self._get_node_positions("ADR"),
+            "altbirthday":  self._get_node_position("X-ALTBDAY"),
+            "begin":        self._get_node_position("BEGIN", required=True),
+            "birthday":     self._get_node_position("BDAY"),
+            "email":        self._get_node_positions("EMAIL"),
+            "end":          self._get_node_position("END", required=True),
+            "fullname":     self._get_node_position("FN"),
+            "label":        self._get_node_positions("X-ABLabel"),
+            "name":         self._get_node_position("N"),
+            "organization": self._get_node_position("ORG"),
+            "photo":        self._get_photo_range(),
+            "prodid":       self._get_node_position("PRODID"),
+            "telephone":    self._get_node_positions("TEL"),
+            "url":          self._get_node_positions("URL"),
+            "version":      self._get_node_position("VERSION"),
+        }
+
+    def tokenize_lines(self, meta=False):
         lineno = 0
         for line in self.handle:
-            yield from self._tokenize_line(line, lineno=lineno)
+            yield from self._tokenize_line(line, lineno=lineno, meta=meta)
             lineno += 1
 
-    def _tokenize_line(self, line, lineno=None):
+    def _tokenize_line(self, line, lineno=None, meta=False):
         """ Parse a line and tokenize it with our field tokens """
 
         parsed = parseline(line)
@@ -183,29 +198,17 @@ class Reader(object):
                 "lineno": lineno
             }
 
-            cls_condensed = pick(cls_kwrgs, "lineno", "subkey")
+            # We only want meta information
+            if meta:
+                cls_kwrgs = pick(cls_kwrgs, "lineno", "subkey")
 
             UnknownNode = lambda kw: Unknown(**kw)
             FieldNode = lambda kw: t(**kw)
 
-            node = None
             if t == None:
-                # We don't know what it is, process it later
-                node = UnknownNode(cls_kwrgs)
-
-            elif t != None:
-                node = FieldNode(cls_kwrgs)
-
-            # TODO(cassidy): Caching seems to not work?
-            # elif self._cache_pos:
-            #
-            #     if t == None:
-            #         # Push a condensed version of the node to vAST
-            #         self._vAST.append(UnknownNode(cls_condensed))
-            #     else:
-            #         self._vAST.append(FieldNode(cls_condensed))
-
-            yield node
+                yield UnknownNode(cls_kwrgs)
+            else:
+                yield FieldNode(cls_kwrgs)
 
 
     def _read_line_numbers(self, l=[]):
@@ -218,7 +221,21 @@ class Reader(object):
 
         self.handle.seek(0)
 
-    def _read_line_range(self, start, end):
+    def _tokenize_rows(self, l=[]):
+        lineno = 0
+        for line in self.tokenize_lines():
+            if lineno in l:
+                yield line
+
+            lineno += 1
+
+        self.handle.seek(0)
+
+    def readslice(self, start, end):
+        r = list(range(start, end + 1))
+        yield from self._read_line_numbers(r)
+
+    def tokenize_slice(self, start, end):
         r = list(range(start, end + 1))
         yield from self._read_line_numbers(r)
 
