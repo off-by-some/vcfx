@@ -13,5 +13,10 @@ setup(
     author_email='cassidybridges@gmail.com',
     url='http://github.com/pholey/vcfx',
     packages=find_packages('.'),
-    install_requires=[],
+    install_requires=[
+        'pydash',
+    ],
+    extras_require={
+        'test': ['pytest']
+    },
 )
