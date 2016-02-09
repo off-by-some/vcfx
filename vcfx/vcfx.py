@@ -1,4 +1,6 @@
 from .tokenizer import Parser
+from .field import all_nodes
+from pydash.functions import partial
 
 class reader(object):
     """docstring for reader"""
@@ -12,48 +14,60 @@ class reader(object):
         self._parser.handle.seek(0)
 
     def addresses(self):
-        yield from self._yield_from_positions("address")
+        positions = self._determine_accessor("ADR")
+        yield from positions()
 
     def alternate_birthday(self):
-        return self._get_from_position("altbirthday")
+        positions = self._determine_accessor("X-ALTBDAY")
+        return positions()
 
     def birthday(self):
-        return self._get_from_position("altbirthday")
+        positions = self._determine_accessor("BDAY")
+        return positions()
 
     def emails(self):
-        yield from self._yield_from_positions("emails")
+        positions = self._determine_accessor("EMAIL")
+        yield from positions()
 
     def fullname(self):
-        return self._get_from_position("fullname")
+        positions = self._determine_accessor("FN")
+        return positions()
 
     def prodid(self):
-        return self._get_from_position("prodid")
+        positions = self._determine_accessor("PRODID")
+        return positions()
 
     def phones(self):
-        yield from self._yield_from_positions("telephone")
+        positions = self._determine_accessor("TEL")
+        yield from positions()
 
     def urls(self):
-        yield from self._yield_from_positions("url")
+        positions = self._determine_accessor("URL")
+        yield from positions()
 
     def version():
-        return self._get_from_position("version")
+        return self._get_from_position("VERSION")
 
     def name(self):
-        return self._get_from_position("name")
+        return self._get_from_position("N")
 
     def organization(self):
-        return self._get_from_position("organization")
+        return self._get_from_position("ORG")
 
     def photo(self):
-        node = self._parser.compile_photo()
+        return self._parser.compile_photo()
 
-        if node is None:
-            return None
-        else:
-            return node
 
     def labels(self):
         yield from self._yield_from_positions("label")
+
+    def _determine_accessor(self, key):
+        node = list(filter(lambda n: n.KEY == key, all_nodes))[0]
+
+        if node.SCALAR:
+            return partial(self._yield_from_positions, node.KEY)
+        else:
+            return self._get_from_position
 
     def _get_from_position(self, pname):
         # find our desired position in the file

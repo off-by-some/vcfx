@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 import io
-from .fields import getField, Unknown
+from .field import get_field_by_key
+from vcfx.field.nodes import Unknown
+from vcfx.field import all_nodes
 from pydash.collections import filter_ as ifilter, partition, pluck
-from pydash.objects import pick
+from pydash.objects import pick, assign
 from itertools import takewhile
 
 def parseline3(line):
+
     segs = line.split(":")
 
     # We could be in a multi-line value
@@ -45,23 +48,14 @@ class Parser(object):
 
         self.handle = io.open(self.fpath, "r", encoding="utf-8", newline="\r\n")
 
-        self.positions = {
-            "address":      None,
-            "altbirthday":  None,
-            "begin":        None,
-            "birthday":     None,
-            "email":        None,
-            "end":          None,
-            "fullname":     None,
-            "label":        None,
-            "name":         None,
-            "organization": None,
-            "photo":        None,
-            "prodid":       None,
-            "telephone":    None,
-            "url":          None,
-            "version":      None,
-        }
+        node_keys = [getattr(x, "KEY") for x in all_nodes]
+
+        self._vAST = None
+
+        # Init our positions map with the keys from our defined nodes
+        self.positions = {}
+        for key in node_keys:
+            self.positions[key] = None
 
         if scan:
             self.discover()
@@ -76,8 +70,9 @@ class Parser(object):
     def find_nodes_by_subkey(self, subkey):
         return self._filter_nodes(lambda n: n.subkey == subkey)
 
+    # IOS Labels
     def _flatten_labels(self):
-        label_idxs = self.positions["label"]
+        label_idxs = self.positions["X-ABLabel"]
 
         if label_idxs == None:
             return
@@ -181,26 +176,25 @@ class Parser(object):
 
         return {"start": start_line, "end": end_line}
 
+    def _determine_pos_fn(self, node):
+        if node.KEY is "PHOTO":
+            return lambda x: self._get_photo_range()
+        if node.SCALAR:
+            return self._get_node_positions
+        else:
+            return self._get_node_position
+
     def discover(self):
         self._vAST = list(self.tokenize_lines(meta=True))
 
-        self.positions = {
-            "address":      self._get_node_positions("ADR"),
-            "altbirthday":  self._get_node_position("X-ALTBDAY"),
-            "begin":        self._get_node_position("BEGIN", required=True),
-            "birthday":     self._get_node_position("BDAY"),
-            "email":        self._get_node_positions("EMAIL"),
-            "end":          self._get_node_position("END", required=True),
-            "fullname":     self._get_node_position("FN"),
-            "label":        self._get_node_positions("X-ABLabel"),
-            "name":         self._get_node_position("N"),
-            "organization": self._get_node_position("ORG"),
-            "photo":        self._get_photo_range(),
-            "prodid":       self._get_node_position("PRODID"),
-            "telephone":    self._get_node_positions("TEL"),
-            "url":          self._get_node_positions("URL"),
-            "version":      self._get_node_position("VERSION"),
-        }
+        # Find the position of every node we know about
+        positions = {}
+        for node in self._vAST:
+            getpos = self._determine_pos_fn(node)
+            positions[node.KEY] = getpos(node.KEY)
+
+        # Update our positions
+        assign(self.positions, positions)
 
         self._flatten_labels()
 
@@ -219,7 +213,8 @@ class Parser(object):
             yield Unknown(rawvalue=line, lineno=lineno)
         else:
             subkey, key, attrs, value = parsed
-            t = getField(key)
+            t = get_field_by_key(key)
+
 
             cls_kwrgs = {
                 "subkey": subkey,
