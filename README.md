@@ -42,15 +42,15 @@ There are still some things left to do:
   - [%40] Documentation of all available field APIs (I strongly encourage you to read through `vcfx.fields` if you are looking)
   - [%25] Complete attribute parsing of fields and assignment to human-readable names
   - Testing
-  - Fold support, Currently if a field comes along thats longer than 80 characters, we die
+  - [%90] Fold support, Currently if a field comes along thats longer than 80 characters, we die
   - Vcard 2.1 support (Really just need to write a `parseline2` function similar to `parseline3` in `tokenizer.js`)
   - Rip the `_vAST` logic out of the file reader in `tokenizer.py` and put it in its own class
-  - Optimize position reader
-  - Full X-attribute parsing
+  - [%70] Optimize position reader
+  - [%5] Full X-attribute parsing
   - URL support for photos
   - Identification of `Unknown` rows & flattening of the `vAST` when iterating over the reader
   - Vcard construction
-  - Vcard validation
+  - [%10] Vcard validation
   - In-place Vcard modification
   - Fetching and storing photos
   - Fetching and rewriting photos under various formats
