@@ -54,7 +54,7 @@ There are still some things left to do:
   - In-place Vcard modification
   - Fetching and storing photos
   - Fetching and rewriting photos under various formats
-
+  - "Safe Mode", aka stripping out fields + values that may break interoperability 
 
 ### Properties available on fields:
 
