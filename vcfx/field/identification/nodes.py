@@ -73,6 +73,9 @@ class Nickname(Field):
     def __init__(self, *a, **kw):
         super(Nickname, self).__init__(*a, **kw)
 
+    def clean_value(self, val=""):
+        return val.split(",")
+
 class Photo(Field):
     KEY = "PHOTO"
     def __init__(self, *a, **kw):

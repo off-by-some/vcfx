@@ -9,12 +9,15 @@ class Field(object):
     def __init__(self, rawvalue=None, attrs=[], lineno=0, label="", subkey=None):
         self.preferred = False
         self.types = pluck(attrs, "type")
+        self.attrs = attrs
         self.value = rawvalue
         self.lineno = lineno
         self.label = label
 
         # We are formatting for the user to see
         self._pretty = False
+
+        self.process_attrs(attrs)
 
         if rawvalue is not None:
             self._pretty = True
@@ -34,6 +37,12 @@ class Field(object):
             return rawvalue.strip("\r\n")
         else:
             return rawvalue
+
+    def process_attrs(self, val):
+        return val
+
+    def validate_value(self, val):
+        return True
 
     def __repr__(self):
         className = self.__class__.__name__
