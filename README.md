@@ -51,11 +51,11 @@ There are still some things left to do:
   - URL support for photos
   - ~~[%100] Identification of `Unknown` rows & flattening of the `vAST` when iterating over the reader~~
   - Vcard construction
-  - Vcard validation
+  - [%10] Vcard validation
   - In-place Vcard modification
   - Fetching and storing photos
   - Fetching and rewriting photos under various formats
-
+  - "Safe Mode", aka stripping out fields + values that may break interoperability
 
 ### Properties available on fields:
 
