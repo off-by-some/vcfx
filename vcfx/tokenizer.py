@@ -4,11 +4,10 @@ from .field import get_field_by_key
 from vcfx.field.nodes import Unknown
 from vcfx.field import all_nodes
 from pydash.collections import filter_ as ifilter, partition, pluck
-from pydash.objects import pick, assign
+from pydash.objects import pick, assign, find_key
 from itertools import takewhile
 
 def parseline3(line):
-
     segs = line.split(":")
 
     # We could be in a multi-line value
@@ -51,6 +50,8 @@ class Parser(object):
         node_keys = [getattr(x, "KEY") for x in all_nodes]
 
         self._vAST = None
+
+        self._in_fold = False
 
         # Init our positions map with the keys from our defined nodes
         self.positions = {}
@@ -116,8 +117,7 @@ class Parser(object):
         return [x.lineno for x in q]
 
     def compile_photo(self):
-        photo_pos = self.positions["photo"]
-
+        photo_pos = self.positions["PHOTO"]
         if photo_pos is None:
             return None
 
@@ -137,48 +137,7 @@ class Parser(object):
 
         return photo_tokens[0]
 
-
-    def _get_photo_range(self):
-        """Attempts to discover where the photo attribute starts and ends
-           based on information from the vAST
-        """
-
-        # Do we have a photo?
-        photo = self.find_nodes_by_key("PHOTO")
-
-        if len(photo) == 0:
-            # Nope.
-            return None
-
-        # Grab where our photo starts in our vAST
-        start_idx = self._vAST.index(photo[0])
-
-        # Slice off anything before it
-        vAST_slice = self._vAST[start_idx:]
-
-        def not_known_token(t):
-            """ Stop at the first token that doesn't match t : <T> or Unknown
-            """
-            def wrapped(a):
-                if type(a) == type(t) or type(a) == Unknown:
-                    return True
-                else:
-                    return False
-            return wrapped
-
-        # Take every item in our vAST from the photo declaration
-        # to the last UNKNOWN token.. A bit of a weak heruristic,
-        # as it only works for photos.
-        # TODO(cassidy): Investigate this before a folded 80 character
-        #                address does
-        photo_slice = list(takewhile(not_known_token(photo[0]), vAST_slice))
-        start_line, end_line = photo_slice[0].lineno, photo_slice[-1].lineno
-
-        return {"start": start_line, "end": end_line}
-
     def _determine_pos_fn(self, node):
-        if node.KEY is "PHOTO":
-            return lambda x: self._get_photo_range()
         if node.SCALAR:
             return self._get_node_positions
         else:
@@ -186,55 +145,105 @@ class Parser(object):
 
     def discover(self):
         self._vAST = list(self.tokenize_lines(meta=True))
-
-        # Find the position of every node we know about
-        positions = {}
-        for node in self._vAST:
-            getpos = self._determine_pos_fn(node)
-            positions[node.KEY] = getpos(node.KEY)
-
-        # Update our positions
-        assign(self.positions, positions)
-
         self._flatten_labels()
 
-    def tokenize_lines(self, meta=False):
+    def _update_position(self, key, value=None):
+        if value is None:
+            return
+
+        pos = self.positions[key]
+
+        if pos is None:
+            self.positions[key] = value
+            return
+
+        if pos is not None and type(pos) is not list:
+            if self.positions[key] is not list:
+                self.positions[key] = [self.positions[key]]
+
+            self.positions[key] = self.positions[key] + [value]
+        else:
+            self.positions[key].append(value)
+
+    def _replace_position(self, key, value):
+        self.positions[key] = value
+
+
+    # TODO: Py2
+    def _find_key_by_item(self, v, node):
+        get_all = lambda t: [[x,y] for x, y in node.items() if type(y) is t]
+        dicts = get_all(dict)
+        lists = get_all(list)
+        ints =  get_all(int)
+
+        matches = [x for x, y in dicts if (y is v)]
+
+        if len(matches) is 1: return matches[0]
+
+        matches = []
+        for k, i in ints:
+            if v is i:
+                return k
+
+        matches = []
+        for k, l in lists:
+            if v in l:
+                return k
+
+    def tokenize_lines(self, **kw):
         lineno = 0
         for line in self.handle:
-            yield from self._tokenize_line(line, lineno=lineno, meta=meta)
+            yield from self._tokenize_line(line, lineno, **kw)
             lineno += 1
 
-    def _tokenize_line(self, line, lineno=None, meta=False):
+    # Multi-line fold support, look for unparsable nodes and assign
+    # the last known node the concatinated result
+    def _determine_fold(self, parsed_line, lineno):
+        last_node = self._find_key_by_item(lineno - 1, self.positions)
+
+        if parsed_line is None:
+            self._update_position("FOLDED", lineno)
+
+        # We have found the second line of a fold, record the position
+        if parsed_line is None and last_node is not "FOLDED":
+            self._fold_range = {"start": lineno - 1}
+
+        # We have reached the end of our fold, update the position
+        if parsed_line is not None and last_node is "FOLDED":
+            start_line = self._fold_range["start"]
+            start_key = self._find_key_by_item(start_line, self.positions)
+            r = {"start": self._fold_range["start"], "end": lineno - 1}
+            self._replace_position(start_key, r)
+
+
+    def _tokenize_line(self, line, lineno, meta=False, position_tracking=True):
         """ Parse a line and tokenize it with our field tokens """
 
+        # TODO: vcard2 support
         parsed = parseline3(line)
+
+        # Do some book-keeping on the line, determine if it's a folded attribute
+        self._determine_fold(parsed, lineno)
 
         if parsed is None:
             yield Unknown(rawvalue=line, lineno=lineno)
         else:
             subkey, key, attrs, value = parsed
             t = get_field_by_key(key)
-
-
             cls_kwrgs = {
                 "subkey": subkey,
                 "attrs": attrs, "rawvalue": value,
                 "lineno": lineno
             }
 
+            if position_tracking:
+                self._update_position(key, lineno)
+
             # We only want meta information
             if meta:
                 cls_kwrgs = pick(cls_kwrgs, "lineno", "subkey")
 
-
-            UnknownNode = lambda kw: Unknown(**kw)
-            FieldNode = lambda kw: t(**kw)
-
-            if t == None:
-                yield UnknownNode(cls_kwrgs)
-            else:
-                yield FieldNode(cls_kwrgs)
-
+            yield t(**cls_kwrgs)
 
     def _read_line_numbers(self, l=[]):
         lineno = 0
@@ -246,9 +255,9 @@ class Parser(object):
 
         self.handle.seek(0)
 
-    def tokenize_rows(self, l=[]):
+    def tokenize_rows(self, l=[], **kw):
         lineno = 0
-        for line in self.tokenize_lines():
+        for line in self.tokenize_lines(**kw):
             if lineno in l:
                 yield line
 
@@ -269,7 +278,11 @@ class Parser(object):
         lineno = 0
         for line in self.readlines():
             if lineno in l:
-                yield from self._tokenize_line(line, lineno=lineno)
+                yield from self._tokenize_line(
+                    line,
+                    lineno,
+                    position_tracking=False
+                )
 
             lineno += 1
 

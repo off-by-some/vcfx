@@ -59,7 +59,7 @@ class reader(object):
 
 
     def labels(self):
-        yield from self._yield_from_positions("label")
+        yield from self._yield_from_positions("X-ABLabel")
 
     def _determine_accessor(self, key):
         node = list(filter(lambda n: n.KEY == key, all_nodes))[0]

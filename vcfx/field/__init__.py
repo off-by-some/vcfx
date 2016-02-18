@@ -1,4 +1,5 @@
 from vcfx import util
+from vcfx.field.nodes import Unknown
 
 M_NAMES = [
     "address", "calendar", "communication",
@@ -13,10 +14,9 @@ all_nodes = []
 for m in modules:
     all_nodes += util.filter_defined_cls(m)
 
-def get_field_by_key(key=None):
-    if key == None:
-        return Unknown
+all_nodes.append(Unknown)
 
+def get_field_by_key(key=None):
     found = list(filter(lambda x: x.KEY == key, all_nodes))
 
     if len(found) == 0:
