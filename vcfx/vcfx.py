@@ -10,12 +10,14 @@ class reader(object):
         self._parser = Parser(vcfpath, scan=scan)
 
     def __iter__(self):
-        yield from self._parser.tokenize_lines()
+        for line in self._parser.tokenize_lines():
+            yield line
         self._parser.handle.seek(0)
 
     def addresses(self):
         positions = self._determine_accessor("ADR")
-        yield from positions()
+        for p in positions:
+            yield p
 
     def alternate_birthday(self):
         positions = self._determine_accessor("X-ALTBDAY")
@@ -27,7 +29,8 @@ class reader(object):
 
     def emails(self):
         positions = self._determine_accessor("EMAIL")
-        yield from positions()
+        for p in positions():
+            yield p
 
     def fullname(self):
         positions = self._determine_accessor("FN")
@@ -39,11 +42,13 @@ class reader(object):
 
     def phones(self):
         positions = self._determine_accessor("TEL")
-        yield from positions()
+        for p in positions():
+            yield p
 
     def urls(self):
         positions = self._determine_accessor("URL")
-        yield from positions()
+        for p in positions():
+            yield p
 
     def version():
         return self._get_from_position("VERSION")
@@ -59,7 +64,8 @@ class reader(object):
 
 
     def labels(self):
-        yield from self._yield_from_positions("X-ABLabel")
+        for p in self._yield_from_positions("X-ABLabel"):
+            yield p
 
     def _determine_accessor(self, key):
         node = list(filter(lambda n: n.KEY == key, all_nodes))[0]
@@ -85,6 +91,8 @@ class reader(object):
         if positions is None:
             yield None
         elif type(positions) is not list and type(positions) is int:
-            yield from self._parser.tokenize_rows([positions])
+            for r in self._parser.tokenize_rows([positions]):
+                yield r
         else:
-            yield from self._parser.tokenize_rows(positions)
+            for r in self._parser.tokenize_rows(positions):
+                yield r

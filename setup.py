@@ -15,6 +15,7 @@ setup(
     packages=find_packages('.'),
     install_requires=[
         'pydash',
+        "six",
     ],
     extras_require={
         'test': ['pytest']

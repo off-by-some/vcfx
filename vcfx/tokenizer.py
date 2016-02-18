@@ -6,6 +6,7 @@ from vcfx.field import all_nodes
 from pydash.collections import filter_ as ifilter, partition, pluck
 from pydash.objects import pick, assign, find_key
 from itertools import takewhile
+from six import iteritems
 
 def parseline3(line):
     segs = line.split(":")
@@ -171,7 +172,7 @@ class Parser(object):
 
     # TODO: Py2
     def _find_key_by_item(self, v, node):
-        get_all = lambda t: [[x,y] for x, y in node.items() if type(y) is t]
+        get_all = lambda t: [[x,y] for x, y in iteritems(node) if type(y) is t]
         dicts = get_all(dict)
         lists = get_all(list)
         ints =  get_all(int)
@@ -193,7 +194,8 @@ class Parser(object):
     def tokenize_lines(self, **kw):
         lineno = 0
         for line in self.handle:
-            yield from self._tokenize_line(line, lineno, **kw)
+            for v in self._tokenize_line(line, lineno, **kw):
+                yield v
             lineno += 1
 
     # Multi-line fold support, look for unparsable nodes and assign
@@ -270,7 +272,8 @@ class Parser(object):
 
     def readslice(self, start, end):
         r = list(range(start, end + 1))
-        yield from self._read_line_numbers(r)
+        for v in self._read_line_numbers(r):
+            yield v
 
     def tokenize_slice(self, start, end):
         l = list(range(start, end + 1))
@@ -278,15 +281,18 @@ class Parser(object):
         lineno = 0
         for line in self.readlines():
             if lineno in l:
-                yield from self._tokenize_line(
+                i = self._tokenize_line(
                     line,
                     lineno,
                     position_tracking=False
                 )
+                for v in i:
+                    yield v
 
             lineno += 1
 
         self.handle.seek(0)
 
     def readlines(self, start=0, end=0):
-        yield from self.handle
+        for line in self.handle:
+            yield line
