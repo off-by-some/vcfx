@@ -144,14 +144,33 @@ There are a couple of attributes that all fields share:
 - `can_video_conference :: bool`
 - `is_TTY :: bool`
 
-#### `Email`
+##### `Email`
 
 - `value :: str`
 
-#### `IMPP`
+##### `IMPP`
 
 - `value :: str` -- URI for instant messaging and presence protocol communications
 
-#### `Language`
+##### `Language`
 
 - `value :: str` -- eg. fr, en, de
+
+#### Geographical Properties:
+##### `GlobalPosition`
+
+- `value :: string`    -- A single text value containing a URI
+
+##### `Timezone`
+
+- `value :: string`    -- A single text value containing information regarding the contact's timezone
+
+
+#### Organizational Properties:
+##### `Title`
+
+- `value :: string`    -- A single text value containing the position or job of the contact
+
+##### `Role`
+
+- `value :: string`    -- A single text value containing information regarding the function or part played by the contact
