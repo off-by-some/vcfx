@@ -4,6 +4,16 @@ class Organization(Field):
     KEY = "ORG"
     def __init__(self, *a, **kw):
         super(Organization, self).__init__(*a, **kw)
+        self.name = None
+        # https://en.wikipedia.org/wiki/Organizational_unit_(computing)
+        self.org_unit1 = None;
+        self.org_unit2 = None;
+
+    def clean_value(self, val=""):
+        segs = val.split(";")
+        self.name = segs[0]
+        self.org_unit1 = segs[1]
+        self.org_unit2 = segs[2]
 
 class Title(Field):
     KEY = "TITLE"

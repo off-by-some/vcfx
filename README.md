@@ -44,7 +44,7 @@ There are still some things left to do:
   - Testing
   - Generic getters for folded items
   - ~~[%100] Fold support, Currently if a field comes along thats longer than 80 characters, we die~~
-  - Vcard 2.1 support (Really just need to write a `parseline2` function similar to `parseline3` in `tokenizer.js`)
+  - Vcard 2.1 support (Really just need to write a `parseline2` function similar to `parseline3` in `tokenizer.py`)
   - Rip the `_vAST` logic out of the file reader in `tokenizer.py` and put it in its own class
   - ~~[%100] Optimize position reader~~
   - Full X-attribute parsing
@@ -174,3 +174,15 @@ There are a couple of attributes that all fields share:
 ##### `Role`
 
 - `value :: string`    -- A single text value containing information regarding the function or part played by the contact
+
+##### `Organization`
+
+- `name :: string`    -- The name of the organization the contact is a part of
+
+- `org_unit1 :: string` -- The first [organizational unit](https://en.wikipedia.org/wiki/Organizational_unit_(computing)#Specific_uses) of the organization the contact is a part of
+
+- `org_unit2 :: string` -- the second organizational unit of the organization the contact is a part of
+
+##### `Member`
+
+- `value :: string`    -- a generic member 
