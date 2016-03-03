@@ -36,7 +36,7 @@ for field in vcard:
 ```
 
 ### Todo:
-There are still some things left to do:
+There are still some things left to do before i call this 1.0, but the API is still entirely useable and adding support for any additional fields is rather easy (See any `nodes.py` in `/fields`).
   - [%75] Expose getters for all fields (You can still get every field via iteration)
   - [%55] Complete value parsing and assignment per spec RFC 6350, However grabbing the unparsed value with `<FieldName>.value` is possible.
   - [%40] Documentation of all available field APIs (I strongly encourage you to read through `vcfx.fields` if you are looking)
