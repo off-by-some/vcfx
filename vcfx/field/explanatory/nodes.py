@@ -5,6 +5,9 @@ class Categories(Field):
     def __init__(self, *a, **kw):
         super(Categories, self).__init__(*a, **kw)
 
+    def clean_values(self, v):
+        self.value = v.strip("\r\n").split(",")
+
 class Note(Field):
     KEY = "NOTE"
     def __init__(self, *a, **kw):

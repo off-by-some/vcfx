@@ -3,7 +3,7 @@ from vcfx.field.nodes import Unknown
 
 M_NAMES = [
     "address", "calendar", "communication",
-    "custom", "explanitory", "general",
+    "custom", "explanatory", "general",
     "geographical", "identification",
     "organizational", "security"
 ]

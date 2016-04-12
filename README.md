@@ -185,4 +185,35 @@ There are a couple of attributes that all fields share:
 
 ##### `Member`
 
-- `value :: string`    -- a generic member 
+- `value :: string`    -- a generic member
+
+#### Explanatory Properties:
+
+##### `Categories`
+
+- `value :: [string]`    -- a list of tags or categories associated with this VCARD
+
+##### `Note`
+
+- `value :: string`    -- a comment associated with the vcard
+
+##### `Prodid`
+
+- `value :: string`    -- specifies the identifier for the product that created the vCard object.
+
+
+##### `Revision`
+
+- `value :: timestamp`    -- Revision information about the current VCARD
+
+##### `UID`
+
+- `value :: string`    -- a globally unique identifier associated with the current VCARD
+
+##### `Url`
+
+- `value :: string`   
+
+##### `Version`
+
+- `value :: string`    -- The VCARD version
