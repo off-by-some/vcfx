@@ -1,3 +1,13 @@
+from __future__ import unicode_literals
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import super
+from builtins import filter
+from future import standard_library
+
+standard_library.install_aliases()
+
 from .tokenizer import Parser
 from .field import all_nodes
 from pydash.functions import partial
@@ -14,9 +24,12 @@ class reader(object):
             yield line
         self._parser.handle.seek(0)
 
+    def __getitem__(self, index):
+        return self._parser._vAST[index]
+
     def addresses(self):
         positions = self._determine_accessor("ADR")
-        for p in positions:
+        for p in positions():
             yield p
 
     def alternate_birthday(self):
@@ -61,7 +74,6 @@ class reader(object):
 
     def photo(self):
         return self._parser.compile_photo()
-
 
     def labels(self):
         for p in self._yield_from_positions("X-ABLabel"):

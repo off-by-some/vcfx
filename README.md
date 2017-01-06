@@ -1,5 +1,5 @@
 # vcfx
-A speedy Python 3 vcard parser built with a simple API
+A lazy Python 2/3 vcard parser built with a human-readable API
 
 ### Usage:
 ```python

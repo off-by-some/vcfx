@@ -4,7 +4,6 @@ from setuptools import setup, find_packages
 from imp import load_source
 import sys
 
-
 setup(
     name='vcfx',
     version=load_source('', 'vcfx/__version__.py').__version__,
