@@ -46,37 +46,78 @@ def test_indexing():
     with open(fixture_path_for("reggie-smalls-ios-v3.0.ast")) as f:
         assert repr(node) == f.readlines()[5].strip()
 
+def flat(a):
+    return list(reduce(lambda b, c: b + c, a))
+
+def has_nodes(ast, nodes):
+    expected_bucket = set()
+    ast = list(ast)
+    nodes = list(nodes)
+
+    for node in nodes:
+        expected_bucket.add(tuple(filter(lambda x: x.KEY == node.KEY, ast)))
+
+    node_hashes = set(hash(x) for x in nodes)
+    expected_nodes = set(hash(x) for x in flat(expected_bucket))
+
+    return node_hashes == expected_nodes
+
 def test_addresses():
     vcard = reader(ios_v3_file)
     nodes = list(vcard.addresses())
-    all_expected = filter(lambda x: x.KEY == "ADR", list(vcard))
+    assert has_nodes(vcard, nodes)
 
-    assert len(set(all_expected) & set(nodes)) == len(nodes)
+def test_alternate_birthday():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.alternate_birthday()]
+    assert has_nodes(vcard, nodes)
+
+def test_birthday():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.birthday()]
+    assert has_nodes(vcard, nodes)
 
 def test_emails():
     vcard = reader(ios_v3_file)
     nodes = list(vcard.emails())
-    all_expected = filter(lambda x: x.KEY == "EMAIL", list(vcard))
+    assert has_nodes(vcard, nodes)
 
-    assert len(set(all_expected) & set(nodes)) == len(nodes)
+def test_fullname():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.fullname()]
+    assert has_nodes(vcard, nodes)
+
+def test_version():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.version()]
+    assert has_nodes(vcard, nodes)
+
+def test_name():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.name()]
+    assert has_nodes(vcard, nodes)
+
+def test_org():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.organization()]
+    assert has_nodes(vcard, nodes)
+
+def test_prodid():
+    vcard = reader(ios_v3_file)
+    nodes = [vcard.prodid()]
+    assert has_nodes(vcard, nodes)
 
 def test_phones():
     vcard = reader(ios_v3_file)
     nodes = list(vcard.phones())
-    all_expected = filter(lambda x: x.KEY == "TEL", list(vcard))
-
-    assert len(set(all_expected) & set(nodes)) == len(nodes)
+    assert has_nodes(vcard, nodes)
 
 def test_urls():
     vcard = reader(ios_v3_file)
     nodes = list(vcard.urls())
-    all_expected = filter(lambda x: x.KEY == "URL", list(vcard))
-
-    assert len(set(all_expected) & set(nodes)) == len(nodes)
+    assert has_nodes(vcard, nodes)
 
 def test_labels():
     vcard = reader(ios_v3_file)
     nodes = list(vcard.labels())
-    all_expected = filter(lambda x: x.KEY == "X-ABLabel", list(vcard))
-
-    assert len(set(all_expected) & set(nodes)) == len(nodes)
+    assert has_nodes(vcard, nodes)

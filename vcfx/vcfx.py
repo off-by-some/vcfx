@@ -63,7 +63,7 @@ class reader(object):
         for p in positions():
             yield p
 
-    def version():
+    def version(self):
         return self._get_from_position("VERSION")
 
     def name(self):
@@ -85,7 +85,7 @@ class reader(object):
         if node.SCALAR:
             return partial(self._yield_from_positions, node.KEY)
         else:
-            return self._get_from_position
+            return partial(self._get_from_position, node.KEY)
 
     def _get_from_position(self, pname):
         # find our desired position in the file
